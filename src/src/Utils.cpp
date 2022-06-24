@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "Utils.h"
 
 std::vector<std::string> splitString(std::string const &str, const char delim)
@@ -13,4 +14,16 @@ std::vector<std::string> splitString(std::string const &str, const char delim)
     }
 
     return out;
+}
+
+uint64_t stringToU64(std::string const &str) {
+
+    if (str.substr(0, 2) == "0x") {
+        // parse hexstring
+        return std::stoull(str.c_str(), nullptr, 16);
+    }
+    else {
+        // parse decimal string
+        return std::stoull(str.c_str(), nullptr, 10);
+    }
 }

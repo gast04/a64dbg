@@ -2,36 +2,25 @@
 
 #include "CmdParser.h"
 
-bool CmdParser::parseMprotArgs(std::string cmd_str) {
-    // expected cmd: "mprot <addr> <size> <flags>"
-    //  flags: combination of rwx
+bool CmdParser::parseArgs(std::string cmd_str) {
+    // reset before new arg parse
+    //args.clear();
 
     auto parts = splitString(cmd_str, ' ');
 
-    for (auto p : parts) {
-        printf("%s\n", p.c_str());
-    }
+    // add if debug
+    //for (auto p : parts) {
+    //    printf("%s\n", p.c_str());
+    //}
 
-    // check first args if integer
-    //parts[1];
+    // return as string, and let the command parse if it is used as integer
+    cmd_args.insert(cmd_args.begin(), ++parts.begin(), parts.end());
 
-    // check second args if integer
-    //parts[2];
-
-    // check third args combination of rwx
-    //parts[3];
-
-    // all checks skipped for now
-    args = {parts[1], parts[2], parts[3]};
-
-
-    printf("leaving parser\n");
     return true;
 }
 
 CMD_TYPE CmdParser::getCmd() {
 
-    args.clear(); // always reset arguments
     CMD_TYPE cmd = CMD_TYPE::NONE;
 
     while (cmd == CMD_TYPE::NONE) {
@@ -46,6 +35,9 @@ CMD_TYPE CmdParser::getCmd() {
         else if (cmd_str == "cont" || cmd_str == "c") {
             cmd = CMD_TYPE::CONTIN;
         }
+        else if (cmd_str == "syscall" || cmd_str == "s") {
+            cmd = CMD_TYPE::SYSCALL_CONTIN;
+        }
         else if (cmd_str == "regs" || cmd_str == "r") {
             cmd = CMD_TYPE::SHOW_REGS;
         }
@@ -56,10 +48,23 @@ CMD_TYPE CmdParser::getCmd() {
             cmd = last_command;
         }
 
+        else if (cmd_str.substr(0, 5) == "break" ||
+                 cmd_str.substr(0, 2) == "bp" ||
+                 cmd_str[0] == 'b')
+        {
+            // verify and parse argumets of mprotect
+            if (parseArgs(cmd_str)) {
+                cmd = CMD_TYPE::SET_BREAKPOINT;
+            }
+            // else -> error during argument parsing
+        }
         // TODO: implement string helper library
         else if (cmd_str.substr(0, 5) == "mprot") {
             // verify and parse argumets of mprotect
-            if (parseMprotArgs(cmd_str)) {
+            // expected cmd: "mprot <addr> <size> <flags>"
+            //  flags: combination of rwx
+
+            if (parseArgs(cmd_str)) {
                 cmd = CMD_TYPE::MEM_MPROTECT;
             }
             // else -> error during argument parsing

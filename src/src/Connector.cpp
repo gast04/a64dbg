@@ -2,18 +2,22 @@
 
 #include "Connector.h"
 
-bool Connector::attach(pid_t tracee_pid) {
+void Connector::init(pid_t tracee_pid) {
+    tracee = tracee_pid;
+}
 
-    printf("[*] Attaching to PID: %d\n", tracee_pid);
+bool Connector::attach() {
+    printf("[!] Connector: attach NOT implemented!\n");
+    return false;
+}
 
-    int wait_status;
-    wait(&wait_status);
+struct user_pt_regs Connector::getRegisters() {
+    struct user_pt_regs regs;
+    struct iovec io;
+    io.iov_base = &regs;
+    io.iov_len = sizeof(regs);
 
-    while(WIFSTOPPED(wait_status)) {
-        printf("WAIT STATUS %d\n" , wait_status);
+    ptrace(PTRACE_GETREGSET, tracee, (void*)NT_PRSTATUS, (void*)&io);
 
-        return true;
-    }
-
-    return true;
+    return regs;
 }

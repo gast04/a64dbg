@@ -10,23 +10,26 @@ enum CMD_TYPE {
     CONTIN,
     SHOW_REGS,
     MEM_MPROTECT,
+    SYSCALL_CONTIN,
+    SET_BREAKPOINT,
 };
 
-class CmdParser {
-    CmdParser() {}
-
+class CmdParser
+{
+private:
     CMD_TYPE last_command = CMD_TYPE::NONE;
-    std::vector<std::string> args;
+    std::vector<std::string> cmd_args;
 
-    bool parseMprotArgs(std::string cmd_str);
+    CmdParser() {}
+    ~CmdParser() {}
+    bool parseArgs(std::string cmd_str);
 
 public:
-    static CmdParser& getInstance()
-    {
+    static CmdParser& getInstance() {
         static CmdParser instance;
         return instance;
     }
 
     CMD_TYPE getCmd();
-    std::vector<std::string> getArgs() { return args; }
+    std::vector<std::string> getArgs() { return cmd_args; }
 };
