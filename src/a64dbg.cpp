@@ -21,6 +21,7 @@
 
 #include "Connector.h"
 #include "CmdParser.h"
+#include "aarch64/Syscalls.h"
 
 
 int wait_status;
@@ -144,7 +145,18 @@ void syscallContinue(pid_t tracee) {
         if( (WSTOPSIG(wait_status)) == 5 ) // trap signal
         {
             struct user_pt_regs regs = Connector::getInstance().getRegisters();
-            printf("[!] Syscall Enter %x at 0x%llx, \n", regs.regs[8], regs.pc);
+
+            uint64_t syscall_num = regs.regs[8];
+
+            auto t = aarch64_syscalls[syscall_num];
+            if (t.name != nullptr) {
+                printf("[!] Syscall %s(%d) at 0x%llx, \n",
+                    t.name, regs.regs[8], regs.pc);
+            }
+            else {
+                printf("[!] Syscall %x at 0x%llx, \n", regs.regs[8], regs.pc);
+            }
+
 
             // TODO: how to distinguish between enter/exit?
             // probably no way if manual input is processed
@@ -220,9 +232,6 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    unsigned icounter = 0;
-
-
     std::string target_binary = argv[1];
     std::cout << "[*] Executable path: " << target_binary << std::endl;
 
@@ -254,5 +263,7 @@ int main(int argc, char** argv) {
         command = cmdparser.getCmd();
         issueCommand(tracee, command);
     }
-    printf("The child executed %u instructions\n", icounter);
+
+    printf("Tracee done\n");
+    return 0;
 }
