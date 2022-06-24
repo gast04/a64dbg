@@ -1,7 +1,7 @@
 #include <string>
 #include <vector>
 
-#include "Utils.h"
+#include "Utils/Utils.h"
 
 enum CMD_TYPE {
     NONE,
@@ -12,6 +12,7 @@ enum CMD_TYPE {
     MEM_MPROTECT,
     SYSCALL_CONTIN,
     SET_BREAKPOINT,
+    READ_MEMORY,
 };
 
 class CmdParser

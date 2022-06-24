@@ -4,7 +4,7 @@
 
 bool CmdParser::parseArgs(std::string cmd_str) {
     // reset before new arg parse
-    //args.clear();
+    cmd_args.clear();
 
     auto parts = splitString(cmd_str, ' ');
 
@@ -38,9 +38,6 @@ CMD_TYPE CmdParser::getCmd() {
         else if (cmd_str == "syscall" || cmd_str == "s") {
             cmd = CMD_TYPE::SYSCALL_CONTIN;
         }
-        else if (cmd_str == "regs" || cmd_str == "r") {
-            cmd = CMD_TYPE::SHOW_REGS;
-        }
         else if (cmd_str == "exit" || cmd_str == "quit" || cmd_str == "q") {
             cmd = CMD_TYPE::EXIT;
         }
@@ -52,13 +49,25 @@ CMD_TYPE CmdParser::getCmd() {
                  cmd_str.substr(0, 2) == "bp" ||
                  cmd_str[0] == 'b')
         {
-            // verify and parse argumets of mprotect
+            // expected cmd: "break <addr>"
+
             if (parseArgs(cmd_str)) {
                 cmd = CMD_TYPE::SET_BREAKPOINT;
             }
-            // else -> error during argument parsing
         }
-        // TODO: implement string helper library
+        else if (cmd_str.substr(0, 5) == "readm" ||
+                 cmd_str.substr(0, 2) == "rm")
+        {
+            // expected cmd: "readm <addr> <size>"
+
+            if (parseArgs(cmd_str)) {
+                cmd = CMD_TYPE::READ_MEMORY;
+            }
+        }
+        // careful by only checking for 'r'
+        else if (cmd_str == "regs" || cmd_str == "r") {
+            cmd = CMD_TYPE::SHOW_REGS;
+        }
         else if (cmd_str.substr(0, 5) == "mprot") {
             // verify and parse argumets of mprotect
             // expected cmd: "mprot <addr> <size> <flags>"

@@ -1,0 +1,9 @@
+[build]
+target = "aarch64-linux-android"
+
+rustflags = [
+    "-Ztrap-unreachable=no",
+    "-Cforce-unwind-tables=no",
+    "-Cno-redzone=yes"
+  ]
+

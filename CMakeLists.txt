@@ -6,7 +6,8 @@ set(SOURCES
     src/a64dbg.cpp
     src/src/CmdParser.cpp
     src/src/Connector.cpp
-    src/src/Utils.cpp
+    src/src/Utils/Utils.cpp
+    src/src/Utils/Memory.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})

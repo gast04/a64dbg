@@ -22,6 +22,7 @@
 #include "Connector.h"
 #include "CmdParser.h"
 #include "aarch64/Syscalls.h"
+#include "Utils/Memory.h"
 
 
 int wait_status;
@@ -52,7 +53,6 @@ void ListBreakPoints()
 
 void setBreakPoint(pid_t tracee)
 {
-    // 0x555555d540 (main of jit_neon)
     auto args = CmdParser::getInstance().getArgs();
     if (args.size() != 1) {
         printf("[!] Invalid amount of arguments for setting breakpoint!\n");
@@ -71,6 +71,35 @@ void setBreakPoint(pid_t tracee)
     , data) );
 }
 
+void readTraceeMemory(pid_t tracee) {
+    auto args = CmdParser::getInstance().getArgs();
+    if (args.size() != 2) {
+        printf("[!] Invalid amount of arguments for reading memory!\n");
+        return;
+    }
+
+    uint64_t r_addr = stringToU64(args[0]);
+    uint64_t r_size = stringToU64(args[1]);
+
+    uint32_t* storage = new uint32_t[r_size];
+    // *4 cause reads byte but passed a uint32* buffer
+    readMemory(tracee, r_addr, storage, r_size*4);
+
+    printf("%016llx: ", r_addr);
+    for(int i = 0; i < r_size; ++i) {
+        printf("%08x ", storage[i]);
+        if ((i%5) == 4) {
+            if (i == r_size -1) {
+                printf("\n");
+            }
+            else {
+                printf("\n%016llx: ", r_addr+=20);
+            }
+        }
+    }
+    printf("\n");
+    delete[] storage;
+}
 
 void execute_debugee(pid_t child, const std::string& prog_name, char** argv)
 {
@@ -93,7 +122,6 @@ void singleStep(pid_t tracee)
 
     wait(&wait_status);
 }
-
 
 void Continue(pid_t tracee)
 {
@@ -218,6 +246,8 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
         syscallContinue(tracee); break;
     case CMD_TYPE::SET_BREAKPOINT:
         setBreakPoint(tracee); break;
+    case CMD_TYPE::READ_MEMORY:
+        readTraceeMemory(tracee); break;
     default:
         // should never happen
         break;
@@ -257,7 +287,10 @@ int main(int argc, char** argv) {
 
     // debugger input loop
     while(WIFSTOPPED(wait_status)) {
-        if (command != CMD_TYPE::SHOW_REGS && command != CMD_TYPE::SET_BREAKPOINT) {
+        if (command != CMD_TYPE::SHOW_REGS &&
+            command != CMD_TYPE::SET_BREAKPOINT &&
+            command != CMD_TYPE::READ_MEMORY)
+        {
             printCmdHeader(tracee);
         }
         command = cmdparser.getCmd();
