@@ -64,9 +64,9 @@ void setBreakPoint(pid_t tracee)
 
     // write the 'break #0' instruction, 00 00 20 D4
     uint64_t data = ptrace(PTRACE_PEEKTEXT, tracee, (void*)bp_addr, 0);
-    unsigned aarch464_trap = 0xD4200000;
+    uint64_t aarch464_trap = 0xD4200000;
     ptrace(PTRACE_POKETEXT, tracee, (void*)bp_addr, (void*)aarch464_trap);
-    printf("[+] Set Breakpoint 0x%llx: 0x%016llx\n", bp_addr, data);
+    printf("[+] Set Breakpoint 0x%llx: 0x%08lx\n", bp_addr, (uint32_t)data);
     BreakPoints.insert ( std::pair< uint64_t, uint64_t>(bp_addr
     , data) );
 }
@@ -137,13 +137,14 @@ void Continue(pid_t tracee)
         if( (WSTOPSIG(wait_status)) == 5 ) // breakpoint hit
         {
             struct user_pt_regs regs = Connector::getInstance().getRegisters();
-            printf("[!] Breakpoint Hit at 0x%llx \n", regs.pc);
+            printf("[!] Breakpoint Hit at 0x%llx\n", regs.pc);
 
             // Restore data at breakpoint
             auto iter = BreakPoints.find(regs.pc);
             if (iter != BreakPoints.end())
             {
-                printf("[+] Restore at 0x%016llx - 0x%016llx\n", iter->first, iter->second);
+                printf("[+] Restore at 0x%016llx - 0x%08lx\n",
+                        iter->first, (uint32_t)iter->second);
                 ptrace(PTRACE_POKETEXT, tracee, (void*)iter->first, (void*)iter->second);
             }
             else {
