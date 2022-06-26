@@ -183,7 +183,7 @@ void syscallContinue(pid_t tracee) {
                     t.name, regs.regs[8], regs.pc);
             }
             else {
-                printf("[!] Syscall %x at 0x%llx, \n", regs.regs[8], regs.pc);
+                printf("[!] Syscall %d at 0x%llx, \n", regs.regs[8], regs.pc);
             }
 
 
