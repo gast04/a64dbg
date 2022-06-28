@@ -21,14 +21,14 @@
 
 #include "Connector.h"
 #include "CmdParser.h"
-#include "aarch64/Syscalls.h"
 #include "Utils/Memory.h"
 #include "Plugins/Plugins.h"
+#include "aarch64/Syscalls.h"
 
 
 int wait_status;
 std::map <uint64_t, uint64_t> BreakPoints; // addr, instruction
-
+PluginHelper plugin_helper;
 
 void CheckDWORDMem(pid_t child, uint64_t addr)
 {
@@ -147,6 +147,8 @@ void Continue(pid_t tracee)
 
 void syscallContinue(pid_t tracee) {
 
+    static bool syscall_enter = true;
+
     if (ptrace(PTRACE_SYSCALL, tracee, 0, 0) < 0) {
         printf("[!] Error in PTRACE_SYSCALL\n");
         return;
@@ -167,13 +169,19 @@ void syscallContinue(pid_t tracee) {
                 printf("[!] Syscall %s(%llu) at 0x%llx, \n",
                     t.name, regs.regs[8], regs.pc);
 
-                // check if a plugin is registered for this syscall if so
-                // execute it
+                if(syscall_enter) {
+                    plugin_helper.callBefore(t.name);
+                    syscall_enter = false;
+                }
+                else {
+                    plugin_helper.callAfter(t.name);
+                    syscall_enter = true;
+                }
+
             }
             else {
                 printf("[!] Syscall %llu at 0x%llx, \n", regs.regs[8], regs.pc);
             }
-
 
             // TODO: how to distinguish between enter/exit?
             // probably no way if manual input is processed
@@ -246,21 +254,6 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
 
 int main(int argc, char** argv) {
 
-    // check installed plugins
-    auto plugin_map = PluginRegistry::getMap();
-
-    for (auto& p : plugin_map) {
-        std::cout << "Found Plugin: " << p.first << std::endl;
-
-        // TODO: check if the name matches a syscall, also store the created
-        // plugins to be easily accessible on syscall enter and exit
-
-        auto plug = PluginRegistry::create(p.first);
-        plug->beforeSyscall();
-        plug->afterSyscall();
-        printf("\n");
-    }
-
     if (argc != 2) {
         printf("Usage: ./debugger <binary path>\n");
         return -1;
@@ -268,6 +261,11 @@ int main(int argc, char** argv) {
 
     std::string target_binary = argv[1];
     std::cout << "[*] Executable path: " << target_binary << std::endl;
+
+    if (!plugin_helper.checkForPlugins()) {
+        printf("Invalid Plugins detected! stop a64dbg\n");
+        return -1;
+    }
 
     pid_t tracee = fork();
     if (tracee == 0) {

@@ -1,4 +1,5 @@
 #include <iostream>
+
 #include "Plugins/Plugins.h"
 
 class ClosePlugin : public Plugin
@@ -14,7 +15,6 @@ public:
     }
 
     static Plugin* create() {
-        std::cout << "'close' create\n";
         return new ClosePlugin();
     }
 };

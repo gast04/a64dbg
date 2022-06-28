@@ -5,7 +5,7 @@
     https://github.com/torvalds/linux/blob/v4.17/include/uapi/asm-generic/unistd.h
 */
 
-#define MAX_SYSCALL_NUM 277
+#define MAX_SYSCALL_NUM 292
 #define SYSCALL_MAXARGS 6
 
 enum argtype {

@@ -38,7 +38,7 @@ public:
         auto& map = getPluginMap();
         if (map.find(name) == map.end()) {
             std::cout << "[!] trying to create a plugin which has not been";
-            std::cout << "    registerd: '" << name << "'" << std::endl;
+            std::cout << "    registered: '" << name << "'" << std::endl;
 
             // maybe crashing here makes sense?
             return nullptr;
@@ -61,6 +61,15 @@ private:
 #define REGISTER_PLUGIN(plugin_name, create_func) \
     bool plugin_name##_entry = PluginRegistry::add(#plugin_name, (create_func))
 
+
+class PluginHelper {
+public:
+    std::unordered_map<std::string, Plugin*> registered_plugins;
+    bool checkForPlugins();
+
+    void callBefore(const std::string& plugin_name);
+    void callAfter(const std::string& plugin_name);
+};
 
 // #############################################################################
 // Plugin Helper Functions
