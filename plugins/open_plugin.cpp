@@ -12,14 +12,14 @@ class OpenPlugin : public Plugin
 {
 public:
 
-    void beforeSyscall() {
+    void beforeSyscall() override {
         std::cout << "before 'open' syscall\n";
 
         struct user_pt_regs regs = readRegisters();
 
     }
 
-    void afterSyscall() {
+    void afterSyscall() override {
         std::cout << "after 'open' syscall\n";
     }
 

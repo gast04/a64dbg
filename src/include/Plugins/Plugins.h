@@ -1,10 +1,14 @@
+/*
+    https://dxuuu.xyz/cpp-static-registration.html#function-1
+*/
+
 #pragma once
 
-#include <map>
 #include <unordered_map>
 #include <functional>
 
 #include <sys/ptrace.h> // needed for registers type
+
 
 class Plugin {
     public:
@@ -16,45 +20,50 @@ class Plugin {
     }
 };
 
-template <typename T>
 class PluginRegistry {
 public:
-    typedef std::function<T*()> FactoryFunction;
-    typedef std::unordered_map<std::string, FactoryFunction> FactoryMap;
+    using PluginCreateFunction = std::function<Plugin*()>;
+    using PluginMap = std::unordered_map<std::string, PluginCreateFunction>;
 
-    static bool add(const std::string& name, FactoryFunction fac) {
-        auto map = getFactoryMap();
+    static bool add(const std::string& name, PluginCreateFunction pcf) {
+        auto& map = getPluginMap();
         if (map.find(name) != map.end()) {
+            // same named plugins alreay fail at compile time, due to the
+            // _entry boolean, so no name clash check needed
             return false;
         }
 
-        getFactoryMap()[name] = fac;
+        // add plugin to map for later creation
+        map[name] = pcf;
         return true;
     }
 
-    static T* create(const std::string& name) {
-        auto map = getFactoryMap();
+    static Plugin* create(const std::string& name) {
+        auto& map = getPluginMap();
         if (map.find(name) == map.end()) {
+            std::cout << "[!] trying to create a plugin which has not been";
+            std::cout << "    registerd: '" << name << "'" << std::endl;
+
+            // maybe crashing here makes sense?
             return nullptr;
         }
-
         return map[name]();
     }
 
-    static const FactoryMap& getMap() {
-        return getFactoryMap();
+    static const PluginMap& getMap() {
+        return getPluginMap();
     }
 
 private:
     // Use Meyer's singleton to prevent SIOF
-    static FactoryMap& getFactoryMap() {
-        static FactoryMap map;
+    static PluginMap& getPluginMap() {
+        static PluginMap map;
         return map;
     }
 };
 
 #define REGISTER_PLUGIN(plugin_name, create_func) \
-    bool plugin_name ## _entry = PluginRegistry<Plugin>::add(#plugin_name, (create_func))
+    bool plugin_name##_entry = PluginRegistry::add(#plugin_name, (create_func))
 
 
 // #############################################################################

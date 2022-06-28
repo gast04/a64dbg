@@ -247,19 +247,19 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
 int main(int argc, char** argv) {
 
     // check installed plugins
-    auto plugin_map = PluginRegistry<Plugin>::getMap();
+    auto plugin_map = PluginRegistry::getMap();
 
     for (auto& p : plugin_map) {
         std::cout << "Found Plugin: " << p.first << std::endl;
-        auto plug = PluginRegistry<Plugin>::create(p.first);
 
-        //std::cout << "calling after syscall\n";
+        // TODO: check if the name matches a syscall, also store the created
+        // plugins to be easily accessible on syscall enter and exit
+
+        auto plug = PluginRegistry::create(p.first);
         plug->beforeSyscall();
         plug->afterSyscall();
+        printf("\n");
     }
-
-    return 0;
-
 
     if (argc != 2) {
         printf("Usage: ./debugger <binary path>\n");
