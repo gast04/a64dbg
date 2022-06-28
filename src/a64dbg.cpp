@@ -23,6 +23,7 @@
 #include "CmdParser.h"
 #include "aarch64/Syscalls.h"
 #include "Utils/Memory.h"
+#include "Plugins/Plugins.h"
 
 
 int wait_status;
@@ -35,21 +36,6 @@ void CheckDWORDMem(pid_t child, uint64_t addr)
     unsigned data = ptrace(PTRACE_PEEKTEXT, child, (void*)addr, 0);
     printf("[+] Checking BP Location 0x%08lx: 0x%08x\n", addr, data);
 }
-
-void ListBreakPoints()
-{
-    /* Printing values in the map
-    std::cout << std::endl << "######### Listing  BreakPoints #########" << std::endl;  
-    for( std::map< uint64_t, uint64_t >::iterator iter=BreakPoints.begin(); iter!=BreakPoints.end(); ++iter)  
-    {
-        //std::cout << (*iter).first << ": " << (*iter).second << std::endl;  
-        printf("[+] Listing BPs 0x%08lx: 0x%08lx\n", iter->first, iter->second);
-    }
-
-    std::cout << std::endl << "######### Finished BreakPoints #########\n\n" << std::endl;
-    */
-}
-
 
 void setBreakPoint(pid_t tracee)
 {
@@ -66,7 +52,7 @@ void setBreakPoint(pid_t tracee)
     uint64_t data = ptrace(PTRACE_PEEKTEXT, tracee, (void*)bp_addr, 0);
     uint64_t aarch464_trap = 0xD4200000;
     ptrace(PTRACE_POKETEXT, tracee, (void*)bp_addr, (void*)aarch464_trap);
-    printf("[+] Set Breakpoint 0x%llx: 0x%08lx\n", bp_addr, (uint32_t)data);
+    printf("[+] Set Breakpoint 0x%lx: 0x%08x\n", bp_addr, (uint32_t)data);
     BreakPoints.insert ( std::pair< uint64_t, uint64_t>(bp_addr
     , data) );
 }
@@ -85,7 +71,7 @@ void readTraceeMemory(pid_t tracee) {
     // *4 cause reads byte but passed a uint32* buffer
     readMemory(tracee, r_addr, storage, r_size*4);
 
-    printf("%016llx: ", r_addr);
+    printf("%016lx: ", r_addr);
     for(int i = 0; i < r_size; ++i) {
         printf("%08x ", storage[i]);
         if ((i%5) == 4) {
@@ -93,7 +79,7 @@ void readTraceeMemory(pid_t tracee) {
                 printf("\n");
             }
             else {
-                printf("\n%016llx: ", r_addr+=20);
+                printf("\n%016lx: ", r_addr+=20);
             }
         }
     }
@@ -160,7 +146,6 @@ void Continue(pid_t tracee)
 }
 
 void syscallContinue(pid_t tracee) {
-    struct user_regs_struct regs;
 
     if (ptrace(PTRACE_SYSCALL, tracee, 0, 0) < 0) {
         printf("[!] Error in PTRACE_SYSCALL\n");
@@ -179,11 +164,14 @@ void syscallContinue(pid_t tracee) {
 
             auto t = aarch64_syscalls[syscall_num];
             if (t.name != nullptr) {
-                printf("[!] Syscall %s(%d) at 0x%llx, \n",
+                printf("[!] Syscall %s(%llu) at 0x%llx, \n",
                     t.name, regs.regs[8], regs.pc);
+
+                // check if a plugin is registered for this syscall if so
+                // execute it
             }
             else {
-                printf("[!] Syscall %d at 0x%llx, \n", regs.regs[8], regs.pc);
+                printf("[!] Syscall %llu at 0x%llx, \n", regs.regs[8], regs.pc);
             }
 
 
@@ -257,6 +245,21 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
 
 
 int main(int argc, char** argv) {
+
+    // check installed plugins
+    auto plugin_map = PluginRegistry<Plugin>::getMap();
+
+    for (auto& p : plugin_map) {
+        std::cout << "Found Plugin: " << p.first << std::endl;
+        auto plug = PluginRegistry<Plugin>::create(p.first);
+
+        //std::cout << "calling after syscall\n";
+        plug->beforeSyscall();
+        plug->afterSyscall();
+    }
+
+    return 0;
+
 
     if (argc != 2) {
         printf("Usage: ./debugger <binary path>\n");
