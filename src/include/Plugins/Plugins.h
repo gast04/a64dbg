@@ -12,12 +12,8 @@
 
 class Plugin {
     public:
-    virtual void beforeSyscall() {};
-    virtual void afterSyscall() {};
-    static Plugin* create() {
-        std::cout << "[*] Parent Plugin Create\n";
-        return nullptr;
-    }
+    virtual void beforeSyscall() = 0;
+    virtual void afterSyscall() = 0;
 };
 
 class PluginRegistry {
