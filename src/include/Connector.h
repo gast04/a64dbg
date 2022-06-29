@@ -19,4 +19,5 @@ public:
     void init(pid_t tracee_pid);
     bool attach();
     struct user_pt_regs getRegisters();
+    void setRegisters(struct user_pt_regs regs);
 };

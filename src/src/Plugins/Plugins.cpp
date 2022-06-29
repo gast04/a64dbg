@@ -2,15 +2,15 @@
 #include <string.h>
 
 #include "Plugins/Plugins.h"
-
+#include "Connector.h"
 
 struct user_pt_regs readRegisters() {
-
-    struct user_pt_regs regs;
-
-    return regs;
+    return Connector::getInstance().getRegisters();
 }
 
+void writeRegisters(struct user_pt_regs regs) {
+    Connector::getInstance().setRegisters(regs);
+}
 
 bool PluginHelper::checkForPlugins() {
 
