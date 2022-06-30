@@ -35,6 +35,9 @@ CMD_TYPE CmdParser::getCmd() {
         else if (cmd_str == "cont" || cmd_str == "c") {
             cmd = CMD_TYPE::CONTIN;
         }
+        else if (cmd_str == "strace") {
+            cmd = CMD_TYPE::STRACE_MODE;
+        }
         else if (cmd_str == "syscall" || cmd_str == "s") {
             cmd = CMD_TYPE::SYSCALL_CONTIN;
         }

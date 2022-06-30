@@ -1,14 +1,18 @@
 #include <stdio.h>
 
 #include "Connector.h"
+#include "Utils/Memory.h"
 
 void Connector::init(pid_t tracee_pid) {
     tracee = tracee_pid;
 }
 
 bool Connector::attach() {
-    printf("[!] Connector: attach NOT implemented!\n");
-    return false;
+    if (ptrace(PTRACE_ATTACH, tracee, 0, 0) < 0) {
+        printf("[!] Error in PTRACE_ATTACH\n");
+        return false;
+    }
+    return true;
 }
 
 struct user_pt_regs Connector::getRegisters() {
@@ -36,4 +40,14 @@ void Connector::setRegisters(struct user_pt_regs regs) {
     if (ptrace(PTRACE_SETREGSET, tracee, (void*)NT_PRSTATUS, (void*)&io) < 0) {
         printf("[!] Error in PTRACE_SETREGSET\n");
     }
+}
+
+size_t Connector::readMemory(void* addr, uint8_t* buffer, size_t size) {
+    // TODO: check if it possible to read from this addr
+    return readProcMemory(tracee, (uint64_t)addr, buffer, size);
+}
+
+size_t Connector::writeMemory(void* addr, uint8_t* buffer, size_t size) {
+    // TODO: check if it possible to write to this addr
+    return writeProcMemory(tracee, (uint64_t)addr, buffer, size);
 }

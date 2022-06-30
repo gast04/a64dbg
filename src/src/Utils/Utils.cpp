@@ -27,3 +27,43 @@ uint64_t stringToU64(std::string const &str) {
         return std::stoull(str.c_str(), nullptr, 10);
     }
 }
+
+void hexdump(uint8_t* data, uint64_t offset, uint64_t len, uint8_t format) {
+
+    /*
+        format of printing
+        <addr>: 00 11 22 33 44
+
+        TODO: improve this function
+    */
+
+    if (format != 1 && format != 4) {
+        printf("[!] Invalid hexdump format, no printing\n");
+        return;
+    }
+
+    uint32_t* d = (uint32_t*)data;
+    if (format == 4) {
+        len /= 4;
+    }
+
+    printf("%016lx: ", offset);
+    for(int i = 0; i < len; ++i) {
+        if (format == 1) {
+            printf("%02x ", data[i]);
+        }
+        else if (format == 4) {
+            printf("%08x ", d[i]);
+        }
+
+        if ((i%5) == 4) {
+            if (i == len -1) {
+                printf("\n");
+            }
+            else {
+                printf("\n%016lx: ", offset += 20);
+            }
+        }
+    }
+    printf("\n");
+}

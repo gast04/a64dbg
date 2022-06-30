@@ -30,6 +30,8 @@ int wait_status;
 std::map <uint64_t, uint64_t> BreakPoints; // addr, instruction
 PluginHelper plugin_helper;
 
+bool strace_mode = false;
+
 void CheckDWORDMem(pid_t child, uint64_t addr)
 {
     //unsigned addr = 0x8048096;
@@ -64,12 +66,12 @@ void readTraceeMemory(pid_t tracee) {
         return;
     }
 
+    // read byte granulariy
     uint64_t r_addr = stringToU64(args[0]);
     uint64_t r_size = stringToU64(args[1]);
 
     uint32_t* storage = new uint32_t[r_size];
-    // *4 cause reads byte but passed a uint32* buffer
-    readMemory(tracee, r_addr, storage, r_size*4);
+    readProcMemory(tracee, r_addr, (uint8_t*)storage, r_size*4);
 
     printf("%016lx: ", r_addr);
     for(int i = 0; i < r_size; ++i) {
@@ -147,6 +149,8 @@ void Continue(pid_t tracee)
 
 void syscallContinue(pid_t tracee) {
 
+    do {
+
     static bool syscall_enter = true;
 
     if (ptrace(PTRACE_SYSCALL, tracee, 0, 0) < 0) {
@@ -156,7 +160,7 @@ void syscallContinue(pid_t tracee) {
 
     wait(&wait_status);
     if (WIFSTOPPED(wait_status)) {
-        printf("Tracee Stop Signal: %d\n", (WSTOPSIG(wait_status)));
+        // printf("Tracee Stop Signal: %d\n", (WSTOPSIG(wait_status)));
 
         if( (WSTOPSIG(wait_status)) == 5 ) // trap signal
         {
@@ -164,9 +168,16 @@ void syscallContinue(pid_t tracee) {
 
             uint64_t syscall_num = regs.regs[8];
 
+            if (syscall_num == 98) {
+                // dont print futex syscall
+                continue;
+            }
+
             auto t = aarch64_syscalls[syscall_num];
             if (t.name != nullptr) {
-                printf("[!] Syscall %s(%llu) at 0x%llx, \n",
+
+                printf("[!] Syscall %c %s(%llu) at 0x%llx, \n",
+                    syscall_enter ? 'E' : 'X',
                     t.name, regs.regs[8], regs.pc);
 
                 if(syscall_enter) {
@@ -190,6 +201,8 @@ void syscallContinue(pid_t tracee) {
     else {
         printf("[!] wait error\n");
     }
+
+    } while(strace_mode);
 }
 
 void printCmdHeader(pid_t tracee) {
@@ -245,8 +258,12 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
         setBreakPoint(tracee); break;
     case CMD_TYPE::READ_MEMORY:
         readTraceeMemory(tracee); break;
+    case CMD_TYPE::STRACE_MODE:
+        strace_mode = true;
+        syscallContinue(tracee); break;
     default:
         // should never happen
+        printf("Not implemented command!");
         break;
     }
 }
@@ -254,24 +271,35 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
 
 int main(int argc, char** argv) {
 
-    if (argc != 2) {
-        printf("Usage: ./debugger <binary path>\n");
+    if (argc == 1) {
+        printf("Usage: ./debugger -p <pid>|<binary path>\n");
         return -1;
     }
 
-    std::string target_binary = argv[1];
-    std::cout << "[*] Executable path: " << target_binary << std::endl;
+    bool MODE_ATTACH = false;
+    uint64_t tracee = 0;
+    std::string param = argv[1];
+    if (param == "-p") {
+        tracee = stringToU64(argv[2]);
+        printf("Attaching to PID: %d\n", tracee);
+        MODE_ATTACH = true;
+    }
+    else {
+        std::cout << "[*] Executable path: " << param << std::endl;
+    }
 
     if (!plugin_helper.checkForPlugins()) {
         printf("Invalid Plugins detected! stop a64dbg\n");
         return -1;
     }
 
-    pid_t tracee = fork();
-    if (tracee == 0) {
-        execute_debugee(tracee, target_binary, argv);
-        printf("Child is supposed to never return!!!");
-        return 0;
+    if (!MODE_ATTACH) {
+        tracee = fork();
+        if (tracee == 0) {
+            execute_debugee(tracee, param, argv);
+            printf("Child is supposed to never return!!!");
+            return 0;
+        }
     }
 
     // init singletons
@@ -280,6 +308,12 @@ int main(int argc, char** argv) {
     auto& cmdparser = CmdParser::getInstance();
 
     // attaching to target process, NOT implemented
+    if (MODE_ATTACH) {
+        if (!connector.attach()) {
+            printf("[!] Could not attach to: %d!\n", tracee);
+            return -1;
+        }
+    }
 
     // when not attaching the new process is calling traceme
     printf("[*] Debugger Started, tracee pid: %d\n", tracee);

@@ -11,6 +11,7 @@ set(SOURCES
     src/src/Utils/Utils.cpp
     src/src/Utils/Memory.cpp
     src/src/Plugins/Plugins.cpp
+    src/src/Plugins/PUtils.cpp
 )
 
 add_subdirectory(plugins)

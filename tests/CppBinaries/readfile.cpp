@@ -4,7 +4,6 @@
 using namespace std;
 
 int main() {
-
 	string filename = "/data/local/tmp/testfile";
 
 	fstream my_file;
@@ -14,11 +13,8 @@ int main() {
 	}
 
 	string content;
-
 	my_file >> content;
-
 	cout << "Content: " << content << endl;
-
 
 	my_file.close(); 
 	return 0;

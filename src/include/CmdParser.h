@@ -13,6 +13,7 @@ enum CMD_TYPE {
     SYSCALL_CONTIN,
     SET_BREAKPOINT,
     READ_MEMORY,
+    STRACE_MODE,
 };
 
 class CmdParser
