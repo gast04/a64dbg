@@ -221,21 +221,26 @@ void printRegsMap(pid_t tracee) {
             i, regs.regs[i], i+10, regs.regs[i+10], i+20, regs.regs[i+20]);
     }
     printf("  x%d:  0x%016llx\n", 30, regs.regs[30]);
+    printf("  pc:   0x%016llx    sp:   0x%016llx pstate:0x%016llx\n",
+            regs.pc, regs.sp, regs.pstate);
     printf("-----------------------------------------------------------\n");
 }
 
 void mprotMem(pid_t tracee) {
 
     // get extra mprot args
-    printf("fetching args\n");
     auto args = CmdParser::getInstance().getArgs();
-    for (auto p : args) {
-        printf("A %s\n", p.c_str());
-    }
-    uint64_t mem_addr = atol(args[0].c_str());
-    uint64_t mem_size = atol(args[1].c_str());
+    uint64_t mem_addr = stringToU64(args[0]);
+    uint64_t mem_size = stringToU64(args[1]);
+    uint64_t mem_prot = stringToU64(args[2]);
 
-    printf("mprotect args: %lu %lu\n", mem_addr, mem_size);
+    printf("[*] mprot parsed args: %lu - %lu - %lu\n",
+           mem_addr, mem_size, mem_prot);
+
+    if (Connector::getInstance().mprotectMemory(mem_addr, mem_size, mem_prot))
+        printf("[*] mprot successful\n");
+    else
+        printf("[!] mprot failed\n");
 }
 
 void issueCommand(pid_t tracee , CMD_TYPE command)
@@ -252,6 +257,9 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
         printRegsMap(tracee); break;
     case CMD_TYPE::MEM_MPROTECT:
         mprotMem(tracee); break;
+    case CMD_TYPE::MEM_MMAP:
+        Connector::getInstance().allocateMemoryInChild();
+        break;
     case CMD_TYPE::SYSCALL_CONTIN:
         syscallContinue(tracee); break;
     case CMD_TYPE::SET_BREAKPOINT:
@@ -318,6 +326,10 @@ int main(int argc, char** argv) {
     // when not attaching the new process is calling traceme
     printf("[*] Debugger Started, tracee pid: %d\n", tracee);
     wait(&wait_status);
+
+    // allocate a private memory region inside the tracee for page based
+    // breakpoints
+    connector.allocateMemoryInChild();
 
     CMD_TYPE command = CMD_TYPE::NONE;
 

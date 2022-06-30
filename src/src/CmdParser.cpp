@@ -81,6 +81,17 @@ CMD_TYPE CmdParser::getCmd() {
             }
             // else -> error during argument parsing
         }
+        else if (cmd_str.substr(0, 4) == "mmap") {
+            // verify and parse argumets of mprotect
+            // expected cmd: "mmap <addr> <size> <flags>"
+            //  flags: combination of rwx
+
+            cmd = CMD_TYPE::MEM_MMAP;
+            /*if (parseArgs(cmd_str)) {
+                cmd = CMD_TYPE::MEM_MPROTECT;
+            }*/
+            // else -> error during argument parsing
+        }
         else {
             printf("[!] Unknown command: '%s'\n", cmd_str.c_str());
         }
