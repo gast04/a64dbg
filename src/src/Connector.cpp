@@ -8,8 +8,11 @@ void Connector::init(pid_t tracee_pid) {
 }
 
 bool Connector::attach() {
-    printf("[!] Connector: attach NOT implemented!\n");
-    return false;
+    if (ptrace(PTRACE_ATTACH, tracee, 0, 0) < 0) {
+        printf("[!] Error in PTRACE_ATTACH\n");
+        return false;
+    }
+    return true;
 }
 
 struct user_pt_regs Connector::getRegisters() {

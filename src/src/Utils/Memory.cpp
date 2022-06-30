@@ -20,7 +20,7 @@ int getMemFd(uint64_t pid, bool read) {
         proc_mem_fd = open(str_mem, O_RDWR);    // READ/WRITE
     }
 
-    printf("[Memory] /proc/$(pid)/mem, fd: %d\n", proc_mem_fd);
+    //printf("[Memory] /proc/$(pid)/mem, fd: %d\n", proc_mem_fd);
     return proc_mem_fd;
 }
 

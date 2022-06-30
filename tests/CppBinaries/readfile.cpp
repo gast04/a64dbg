@@ -4,7 +4,6 @@
 using namespace std;
 
 int main() {
-
 	string filename = "/data/local/tmp/testfile";
 
 	fstream my_file;
