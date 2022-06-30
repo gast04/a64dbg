@@ -14,11 +14,8 @@ int main() {
 	}
 
 	string content;
-
 	my_file >> content;
-
 	cout << "Content: " << content << endl;
-
 
 	my_file.close(); 
 	return 0;

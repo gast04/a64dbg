@@ -7,8 +7,6 @@
 #include <unordered_map>
 #include <functional>
 
-#include <sys/ptrace.h> // needed for registers type
-
 
 class Plugin {
     public:
@@ -70,9 +68,3 @@ public:
     void callBefore(const std::string& plugin_name);
     void callAfter(const std::string& plugin_name);
 };
-
-// #############################################################################
-// Plugin Helper Functions
-
-struct user_pt_regs readRegisters();
-void writeRegisters(struct user_pt_regs regs);

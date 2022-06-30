@@ -20,4 +20,6 @@ public:
     bool attach();
     struct user_pt_regs getRegisters();
     void setRegisters(struct user_pt_regs regs);
+    size_t readMemory(void* addr, uint8_t* buffer, size_t size);
+    size_t writeMemory(void* addr, uint8_t* buffer, size_t size);
 };

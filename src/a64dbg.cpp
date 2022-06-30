@@ -64,12 +64,12 @@ void readTraceeMemory(pid_t tracee) {
         return;
     }
 
+    // read byte granulariy
     uint64_t r_addr = stringToU64(args[0]);
     uint64_t r_size = stringToU64(args[1]);
 
     uint32_t* storage = new uint32_t[r_size];
-    // *4 cause reads byte but passed a uint32* buffer
-    readMemory(tracee, r_addr, storage, r_size*4);
+    readProcMemory(tracee, r_addr, (uint8_t*)storage, r_size*4);
 
     printf("%016lx: ", r_addr);
     for(int i = 0; i < r_size; ++i) {
