@@ -1,3 +1,10 @@
+/*
+    goal is to register plugins which modify the input registers of a syscall
+    so we want to be able to intercept syscalls
+
+    https://dxuuu.xyz/cpp-static-registration.html#function-1
+*/
+
 #include <iostream>
 
 #include "Plugins/Plugins.h"
