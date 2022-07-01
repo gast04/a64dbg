@@ -12,7 +12,7 @@ bool PluginHelper::checkForPlugins() {
     auto plugin_map = PluginRegistry::getMap();
 
     for (auto& p : plugin_map) {
-        std::cout << "[*] Init Plugin: " << p.first << std::endl;
+        std::cout << "[*]   init Plugin: " << p.first << std::endl;
 
         bool is_syscall = false;
         for (int i = 0; i < MAX_SYSCALL_NUM; ++i) {

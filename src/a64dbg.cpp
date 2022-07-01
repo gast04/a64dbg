@@ -101,16 +101,6 @@ void execute_debugee(pid_t child, const std::string& prog_name, char** argv)
     execvp(prog_name.c_str(), argv);
 }
 
-void singleStep(pid_t tracee)
-{
-    if (ptrace(PTRACE_SINGLESTEP, tracee, 0, 0) < 0) {
-        printf("[!] Error in PTRACE_SINGLESTEP\n");
-        return;
-    }
-
-    wait(&wait_status);
-}
-
 void Continue(pid_t tracee)
 {
     if (ptrace(PTRACE_CONT, tracee, 0, 0) < 0) {
@@ -230,17 +220,27 @@ void mprotMem(pid_t tracee) {
 
     // get extra mprot args
     auto args = CmdParser::getInstance().getArgs();
+    if (args.size() != 3) {
+        printf("[!] Invalid amount of arguments for mprot!\n");
+        printf("    mprot <addr> <size> <prot_flags>\n");
+        return;
+    }
+
     uint64_t mem_addr = stringToU64(args[0]);
     uint64_t mem_size = stringToU64(args[1]);
     uint64_t mem_prot = stringToU64(args[2]);
+    if (mem_addr == -1 || mem_size == -1 || mem_prot == -1) {
+        printf("[!] Check args for mprot!\n");
+        return;
+    }
 
-    printf("[*] mprot parsed args: %lu - %lu - %lu\n",
+    printf("[*] mprot parsed args: %lu, %lu, %lu\n",
            mem_addr, mem_size, mem_prot);
 
-    if (Connector::getInstance().mprotectMemory(mem_addr, mem_size, mem_prot))
-        printf("[*] mprot successful\n");
-    else
-        printf("[!] mprot failed\n");
+    int result = Connector::getInstance().mprotectMemory(
+                    mem_addr, mem_size, mem_prot);
+
+    printf("[+] mprot result: 0x%x\n", result);
 }
 
 void issueCommand(pid_t tracee , CMD_TYPE command)
@@ -250,7 +250,8 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
     case CMD_TYPE::EXIT:
         exit(0); break;
     case CMD_TYPE::NEXT:
-        singleStep(tracee); break;
+        wait_status = Connector::getInstance().doSingleStep();
+        break;
     case CMD_TYPE::CONTIN:
         Continue(tracee); break;
     case CMD_TYPE::SHOW_REGS:
@@ -289,7 +290,7 @@ int main(int argc, char** argv) {
     std::string param = argv[1];
     if (param == "-p") {
         tracee = stringToU64(argv[2]);
-        printf("Attaching to PID: %d\n", tracee);
+        printf("Attaching to PID: %lu\n", tracee);
         MODE_ATTACH = true;
     }
     else {
@@ -318,13 +319,13 @@ int main(int argc, char** argv) {
     // attaching to target process, NOT implemented
     if (MODE_ATTACH) {
         if (!connector.attach()) {
-            printf("[!] Could not attach to: %d!\n", tracee);
+            printf("[!] Could not attach to: %lu!\n", tracee);
             return -1;
         }
     }
 
     // when not attaching the new process is calling traceme
-    printf("[*] Debugger Started, tracee pid: %d\n", tracee);
+    printf("[*] Debugger Started, tracee pid: %lu\n", tracee);
     wait(&wait_status);
 
     // allocate a private memory region inside the tracee for page based
@@ -337,7 +338,8 @@ int main(int argc, char** argv) {
     while(WIFSTOPPED(wait_status)) {
         if (command != CMD_TYPE::SHOW_REGS &&
             command != CMD_TYPE::SET_BREAKPOINT &&
-            command != CMD_TYPE::READ_MEMORY)
+            command != CMD_TYPE::READ_MEMORY &&
+            command != CMD_TYPE::MEM_MPROTECT)
         {
             printCmdHeader(tracee);
         }

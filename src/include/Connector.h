@@ -26,6 +26,7 @@ public:
     size_t writeMemory(void* addr, uint8_t* buffer, size_t size);
 
     uint64_t getPrivateMemory();
+    int doSingleStep();
     uint64_t allocateMemoryInChild();
-    bool mprotectMemory(uint64_t mem_addr, uint64_t mem_size, uint64_t mem_prot);
+    uint64_t mprotectMemory(uint64_t mem_addr, uint64_t mem_size, uint64_t mem_prot);
 };

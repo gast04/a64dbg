@@ -18,13 +18,19 @@ std::vector<std::string> splitString(std::string const &str, const char delim)
 
 uint64_t stringToU64(std::string const &str) {
 
-    if (str.substr(0, 2) == "0x") {
-        // parse hexstring
-        return std::stoull(str.c_str(), nullptr, 16);
+    try {
+        if (str.substr(0, 2) == "0x") {
+            // parse hexstring
+            return std::stoull(str.c_str(), nullptr, 16);
+        }
+        else {
+            // parse decimal string
+            return std::stoull(str.c_str(), nullptr, 10);
+        }
     }
-    else {
-        // parse decimal string
-        return std::stoull(str.c_str(), nullptr, 10);
+    catch (void* e) {
+        printf("Could not convert to u64: %s\n", str.c_str());
+        return -1;
     }
 }
 

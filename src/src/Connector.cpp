@@ -59,9 +59,21 @@ uint64_t Connector::getPrivateMemory() {
     return private_memory;
 }
 
-uint64_t Connector::allocateMemoryInChild() {
+int Connector::doSingleStep()
+{
     int wait_status = 0;
-    struct user_pt_regs regs = Connector::getInstance().getRegisters();
+    if (ptrace(PTRACE_SINGLESTEP, tracee, 0, 0) < 0) {
+        printf("[!] Error in PTRACE_SINGLESTEP\n");
+        return -1;
+    }
+
+    wait(&wait_status);
+    return wait_status;
+}
+
+uint64_t Connector::allocateMemoryInChild()
+{
+    struct user_pt_regs regs = getRegisters();
     struct user_pt_regs regs_save = regs; // for later restore
 
     // write the 'svc #0' instruction, 01 00 00 D4
@@ -77,22 +89,20 @@ uint64_t Connector::allocateMemoryInChild() {
     regs.regs[3] = MAP_ANONYMOUS | MAP_PRIVATE;
     regs.regs[4] = -1;      // fd
     regs.regs[5] = 0;       // offset
-    Connector::getInstance().setRegisters(regs);
+    setRegisters(regs);
 
     // do single step and execute mmap
-    if (ptrace(PTRACE_SINGLESTEP, tracee, 0, 0) < 0) {
-        printf("[!] Error in PTRACE_SINGLESTEP\n");
+    if (doSingleStep() == -1) {
         return -1;
     }
-    wait(&wait_status);
 
     // read registers to get mmap address
-    regs = Connector::getInstance().getRegisters();
+    regs = getRegisters();
     private_memory = regs.regs[0];
     printf("[+] Privat memory: 0x%lx\n", private_memory);
 
     // restore registers and instruction
-    Connector::getInstance().setRegisters(regs_save);
+    setRegisters(regs_save);
     ptrace(PTRACE_POKETEXT, tracee, (void*)regs_save.pc, (void*)orig_inst);
 
     // directly write `svc #0` (01 00 00 D4) instruction to mmaped area, as its
@@ -102,17 +112,17 @@ uint64_t Connector::allocateMemoryInChild() {
     return private_memory;
 }
 
-bool Connector::mprotectMemory(uint64_t mem_addr, uint64_t mem_size,
+uint64_t Connector::mprotectMemory(uint64_t mem_addr, uint64_t mem_size,
                                uint64_t mem_prot)
 {
     if (private_memory == -1) {
         printf("[!] Private Memory not set, cannot call mprotect!\n");
-        return false;
+        return -1;
     }
 
     if (mem_addr == private_memory) {
         printf("[!] Mprotect on private memory not possible!\n");
-        return false;
+        return -1;
     }
 
     // NOTE: private memory already contains the svc instruction
@@ -125,17 +135,18 @@ bool Connector::mprotectMemory(uint64_t mem_addr, uint64_t mem_size,
     regs.regs[0] = mem_addr; // address to modify
     regs.regs[1] = mem_size; // size
     regs.regs[2] = mem_prot; // 7 rwx, 5 rx, 3 rw, 1 r, 0 NONE
-    Connector::getInstance().setRegisters(regs);
+    setRegisters(regs);
 
     // do single step and execute mprotect
-    if (ptrace(PTRACE_SINGLESTEP, tracee, 0, 0) < 0) {
-        printf("[!] Error in PTRACE_SINGLESTEP\n");
-        return false;
+    if (doSingleStep() == -1) {
+        return -1;
     }
-    int wait_status = 0;
-    wait(&wait_status);
+
+    // read registers to get mprotect result
+    regs = getRegisters();
+    uint64_t res = regs.regs[0];
 
     // restore registers
-    Connector::getInstance().setRegisters(regs_save);
-    return true;
+    setRegisters(regs_save);
+    return res;
 }
