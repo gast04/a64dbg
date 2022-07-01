@@ -104,9 +104,7 @@ void Continue()
 
     waitpid(tracee, &wait_status, 0);
     if (WIFSTOPPED(wait_status)) {
-        printf("Tracee Stop Signal: %d\n", (WSTOPSIG(wait_status)));
-
-        if( (WSTOPSIG(wait_status)) == 5 ) // breakpoint hit
+        if( (WSTOPSIG(wait_status)) == 5 )
         {
             struct user_pt_regs regs = Connector::getInstance().getRegisters();
             printf("[!] Breakpoint Hit at 0x%llx\n", regs.pc);
@@ -123,12 +121,15 @@ void Continue()
                 printf("Breakpoint not found in list... hein??\n");
             }
         }
+        else {
+            printf("[*] Continue, Stop Signal: %d\n", (WSTOPSIG(wait_status)));
+            return;
+        }
     }
     else {
-        printf("[!] wait error\n");
+        printf("[!] Process not stopped by a signal\n");
+        return;
     }
-
-    // printf("[+] Child stopped at pc = 0x%08lx\n", regs.pc);
 }
 
 void syscallContinue() {
@@ -144,19 +145,18 @@ void syscallContinue() {
 
     waitpid(tracee, &wait_status, 0);
     if (WIFSTOPPED(wait_status)) {
-        //printf("Tracee Stop Signal: %d\n", (WSTOPSIG(wait_status)));
-
-        //if( (WSTOPSIG(wait_status)) == 5 ) // trap signal
-        //{
+        if( (WSTOPSIG(wait_status)) == 5 ) // trap signal
+        {
             struct user_pt_regs regs = Connector::getInstance().getRegisters();
 
+            // skip following syscalls, those spam a lot and are not
+            // very intersting
             uint64_t syscall_num = regs.regs[8];
-
             if (syscall_num == 98 ||         // futex
                 syscall_num == 124 ||        // sched_yield
                 syscall_num == 226 ||        // mprotect
                 syscall_num == 233           // madvise
-            ) {   
+            ) {
                 continue;
             }
 
@@ -176,14 +176,13 @@ void syscallContinue() {
                     plugin_helper.callAfter(t.name);
                     syscall_enter = true;
                 }
-
             }
             else {
                 printf("[!] Syscall %llu at 0x%llx, \n", regs.regs[8], regs.pc);
             }
 
             // on return from clone we need to follow the child
-            if (syscall_num == 220 && syscall_enter) {
+            if (CmdParser::getInstance().follow_fork && syscall_num == 220 && syscall_enter) {
                 uint64_t msg = 0;
                 ptrace(PTRACE_GETEVENTMSG, tracee, NULL, &msg);
                 //printf("ret msg: %lu\n", msg);
@@ -193,12 +192,16 @@ void syscallContinue() {
 
             // TODO: how to distinguish between enter/exit?
             // probably no way if manual input is processed
-        //}
+        }
+        else {
+            printf("[*] Syscall, Stop Signal: %d\n", (WSTOPSIG(wait_status)));
+            return;
+        }
     }
     else {
-        printf("[!] wait error\n");
+        printf("[!] Process not stopped by a signal\n");
+        return;
     }
-
     } while(strace_mode);
 }
 
@@ -304,11 +307,13 @@ int main(int argc, char** argv) {
     printf("[*] Debugger Started, tracee pid: %lu\n", tracee);
     waitpid(tracee, &wait_status, 0);
 
-    // TODO: add follow fork
-    uint32_t popts = /*PTRACE_O_TRACESYSGOOD*/
-         PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK; // | PTRACE_O_TRACEVFORK | PTRACE_O_TRACEFORK;
-    int res = ptrace(PTRACE_SETOPTIONS, tracee, 0, (unsigned long)popts);
-    printf("set ptrace options: %d\n", res);
+    if (cmdparser.follow_fork) {
+        printf("[*] Enable follow fork\n");
+        uint32_t popts = /*PTRACE_O_TRACESYSGOOD*/
+             PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK; // | PTRACE_O_TRACEVFORK | PTRACE_O_TRACEFORK;
+        int res = ptrace(PTRACE_SETOPTIONS, tracee, 0, (unsigned long)popts);
+        printf("set ptrace options: %d\n", res);
+    }
 
     // allocate a private memory region inside the tracee for page based
     // breakpoints
