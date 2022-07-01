@@ -21,9 +21,9 @@ public:
     void afterSyscall() override {
         std::cout << "after 'read' syscall\n";
 
-        uint8_t buffer[256] = {};
-        if (size > 256)
-            size = 256;
+        uint8_t buffer[32] = {};
+        if (size > 32)
+            size = 32;
 
         readMemory((void*)buffer_ptr, buffer, size);
         hexdump(buffer, buffer_ptr, size, 4);

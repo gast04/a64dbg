@@ -102,3 +102,69 @@ CMD_TYPE CmdParser::getCmd() {
     last_command = cmd;
     return cmd;
 }
+
+bool CmdParser::startUpArgs(int argc, char** argv) {
+
+    if (argc == 1) {
+        // print help
+        printf("Usage: a64dbg [-f] -p <pid>|<binary>\n");
+        printf("    -f          follow fork/clone\n");
+        printf("    -p <pid>    pid to attach\n");
+        printf("    <binary>    program to start\n");
+        return false;
+    }
+
+    follow_fork = false;
+    attach_mode = false;
+    target_pid = 0;
+
+    try {
+        for(int i = 1; i < argc; ++i) {
+            std::string param = argv[i];
+
+            if (param == "-f") {
+                follow_fork = true;
+            }
+            else if (param == "-p") {
+                attach_mode = true;
+
+                if (i+1 >= argc) {
+                    printf("No argument found for <pid>!\n");
+                    return false;
+                }
+
+                target_pid = stringToU64(argv[i+1]);
+                if (target_pid == -1) {
+                    printf("Could not parse <pid>!\n");
+                    return false;
+                }
+                i++;
+            }
+            else {
+                binary_name = param;
+            }
+        }
+    }
+    catch (void* e) {
+        printf("[!] Error during Argument parsing\n");
+        return false;
+    }
+
+    /*
+    printf("Args Summary:\n");
+    printf("    binary name: %s\n", binary_name.c_str());
+    printf("    attach mode: %d\n", attach_mode);
+    printf("    follow fork: %d\n", follow_fork);
+    printf("    target pid:  %d\n", target_pid);
+    */
+
+    if (attach_mode && !binary_name.empty()) {
+        printf("[Parser] Pid and binary given, ignoring binary!\n");
+        binary_name = "";
+    }
+
+    if (follow_fork)
+        printf("[*] Follow Fork ENABLED\n");
+
+    return true;
+}

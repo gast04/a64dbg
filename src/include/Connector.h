@@ -19,11 +19,14 @@ public:
     }
 
     void init(pid_t tracee_pid);
+    void setTracee(pid_t tracee_pid);
     bool attach();
     struct user_pt_regs getRegisters();
     void setRegisters(struct user_pt_regs regs);
     size_t readMemory(void* addr, uint8_t* buffer, size_t size);
     size_t writeMemory(void* addr, uint8_t* buffer, size_t size);
+    uint32_t getDWORD(void* addr);
+    uint64_t getTraceePid();
 
     uint64_t getPrivateMemory();
     int doSingleStep();

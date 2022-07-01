@@ -33,6 +33,12 @@ public:
         return instance;
     }
 
+    bool follow_fork;
+    bool attach_mode;
+    uint64_t target_pid;
+    std::string binary_name;
+    bool startUpArgs(int argc, char** argv);
+
     CMD_TYPE getCmd();
     std::vector<std::string> getArgs() { return cmd_args; }
 };

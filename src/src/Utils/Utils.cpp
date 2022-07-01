@@ -1,4 +1,7 @@
 #include <stdlib.h>
+#include <sys/ptrace.h>
+
+#include "Connector.h"
 #include "Utils/Utils.h"
 
 std::vector<std::string> splitString(std::string const &str, const char delim)
@@ -28,7 +31,7 @@ uint64_t stringToU64(std::string const &str) {
             return std::stoull(str.c_str(), nullptr, 10);
         }
     }
-    catch (void* e) {
+    catch (const char* exc ) {
         printf("Could not convert to u64: %s\n", str.c_str());
         return -1;
     }
@@ -72,4 +75,26 @@ void hexdump(uint8_t* data, uint64_t offset, uint64_t len, uint8_t format) {
         }
     }
     printf("\n");
+}
+
+void printCmdHeader() {
+    struct user_pt_regs regs = Connector::getInstance().getRegisters();
+    uint32_t instr = Connector::getInstance().getDWORD((void*)regs.pc);
+    uint64_t tracee_pid = Connector::getInstance().getTraceePid();
+    printf("[+] (%d) pc: 0x%08lx sp: 0x%08lx instr: 0x%04x\n",
+            tracee_pid, regs.pc, regs.sp, instr);
+}
+
+void printRegsMap() {
+    struct user_pt_regs regs = Connector::getInstance().getRegisters();
+
+    printf("----Register Map-------------------------------------------\n");
+    for (int i = 0; i < 10; ++i) {
+        printf("  x%d:   0x%016llx   x%d:  0x%016llx  x%d:  0x%016llx \n",
+            i, regs.regs[i], i+10, regs.regs[i+10], i+20, regs.regs[i+20]);
+    }
+    printf("  x%d:  0x%016llx\n", 30, regs.regs[30]);
+    printf("  pc:   0x%016llx    sp:   0x%016llx pstate:0x%016llx\n",
+            regs.pc, regs.sp, regs.pstate);
+    printf("-----------------------------------------------------------\n");
 }

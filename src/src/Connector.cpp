@@ -10,6 +10,10 @@ void Connector::init(pid_t tracee_pid) {
     private_memory = -1;
 }
 
+void Connector::setTracee(pid_t tracee_pid) {
+    tracee = tracee_pid;
+}
+
 bool Connector::attach() {
     if (ptrace(PTRACE_ATTACH, tracee, 0, 0) < 0) {
         printf("[!] Error in PTRACE_ATTACH\n");
@@ -55,6 +59,14 @@ size_t Connector::writeMemory(void* addr, uint8_t* buffer, size_t size) {
     return writeProcMemory(tracee, (uint64_t)addr, buffer, size);
 }
 
+uint32_t Connector::getDWORD(void* addr) {
+    return ptrace(PTRACE_PEEKTEXT, tracee, addr, 0);
+}
+
+uint64_t Connector::getTraceePid() {
+    return tracee;
+}
+
 uint64_t Connector::getPrivateMemory() {
     return private_memory;
 }
@@ -67,7 +79,7 @@ int Connector::doSingleStep()
         return -1;
     }
 
-    wait(&wait_status);
+    waitpid(tracee, &wait_status, 0);
     return wait_status;
 }
 

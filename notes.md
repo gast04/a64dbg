@@ -32,5 +32,5 @@ https://stackoverflow.com/questions/958369/low-overhead-way-to-access-the-memory
 
 # Resources
 * https://web.archive.org/web/20170628183438/http://www.advogato.org/person/StephanPeijnik/diary.html?start=26
-
+* https://stackoverflow.com/questions/62066040/linux-syscalls-ptrace-o-traceclone-causes-indefinite-hanging
 

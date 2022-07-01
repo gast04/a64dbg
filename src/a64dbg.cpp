@@ -30,16 +30,10 @@ int wait_status;
 std::map <uint64_t, uint64_t> BreakPoints; // addr, instruction
 PluginHelper plugin_helper;
 
+uint64_t tracee = 0;
 bool strace_mode = false;
 
-void CheckDWORDMem(pid_t child, uint64_t addr)
-{
-    //unsigned addr = 0x8048096;
-    unsigned data = ptrace(PTRACE_PEEKTEXT, child, (void*)addr, 0);
-    printf("[+] Checking BP Location 0x%08lx: 0x%08x\n", addr, data);
-}
-
-void setBreakPoint(pid_t tracee)
+void setBreakPoint()
 {
     auto args = CmdParser::getInstance().getArgs();
     if (args.size() != 1) {
@@ -59,7 +53,7 @@ void setBreakPoint(pid_t tracee)
     , data) );
 }
 
-void readTraceeMemory(pid_t tracee) {
+void readTraceeMemory() {
     auto args = CmdParser::getInstance().getArgs();
     if (args.size() != 2) {
         printf("[!] Invalid amount of arguments for reading memory!\n");
@@ -101,14 +95,14 @@ void execute_debugee(pid_t child, const std::string& prog_name, char** argv)
     execvp(prog_name.c_str(), argv);
 }
 
-void Continue(pid_t tracee)
+void Continue()
 {
     if (ptrace(PTRACE_CONT, tracee, 0, 0) < 0) {
         printf("[!] Error in PTRACE_CONT\n");
         return;
     }
 
-    wait(&wait_status);
+    waitpid(tracee, &wait_status, 0);
     if (WIFSTOPPED(wait_status)) {
         printf("Tracee Stop Signal: %d\n", (WSTOPSIG(wait_status)));
 
@@ -137,36 +131,40 @@ void Continue(pid_t tracee)
     // printf("[+] Child stopped at pc = 0x%08lx\n", regs.pc);
 }
 
-void syscallContinue(pid_t tracee) {
+void syscallContinue() {
 
     do {
-
     static bool syscall_enter = true;
 
+    //printf("sysall on: %d\n", tracee);
     if (ptrace(PTRACE_SYSCALL, tracee, 0, 0) < 0) {
         printf("[!] Error in PTRACE_SYSCALL\n");
         return;
     }
 
-    wait(&wait_status);
+    waitpid(tracee, &wait_status, 0);
     if (WIFSTOPPED(wait_status)) {
-        // printf("Tracee Stop Signal: %d\n", (WSTOPSIG(wait_status)));
+        //printf("Tracee Stop Signal: %d\n", (WSTOPSIG(wait_status)));
 
-        if( (WSTOPSIG(wait_status)) == 5 ) // trap signal
-        {
+        //if( (WSTOPSIG(wait_status)) == 5 ) // trap signal
+        //{
             struct user_pt_regs regs = Connector::getInstance().getRegisters();
 
             uint64_t syscall_num = regs.regs[8];
 
-            if (syscall_num == 98) {
-                // dont print futex syscall
+            if (syscall_num == 98 ||         // futex
+                syscall_num == 124 ||        // sched_yield
+                syscall_num == 226 ||        // mprotect
+                syscall_num == 233           // madvise
+            ) {   
                 continue;
             }
 
             auto t = aarch64_syscalls[syscall_num];
             if (t.name != nullptr) {
 
-                printf("[!] Syscall %c %s(%llu) at 0x%llx, \n",
+                printf("[!] (%ld) Syscall %c %s(%llu) at 0x%llx, \n",
+                    tracee,
                     syscall_enter ? 'E' : 'X',
                     t.name, regs.regs[8], regs.pc);
 
@@ -184,9 +182,18 @@ void syscallContinue(pid_t tracee) {
                 printf("[!] Syscall %llu at 0x%llx, \n", regs.regs[8], regs.pc);
             }
 
+            // on return from clone we need to follow the child
+            if (syscall_num == 220 && syscall_enter) {
+                uint64_t msg = 0;
+                ptrace(PTRACE_GETEVENTMSG, tracee, NULL, &msg);
+                //printf("ret msg: %lu\n", msg);
+                tracee = msg;
+                Connector::getInstance().setTracee(msg);
+            }
+
             // TODO: how to distinguish between enter/exit?
             // probably no way if manual input is processed
-        }
+        //}
     }
     else {
         printf("[!] wait error\n");
@@ -195,28 +202,8 @@ void syscallContinue(pid_t tracee) {
     } while(strace_mode);
 }
 
-void printCmdHeader(pid_t tracee) {
-    struct user_pt_regs regs = Connector::getInstance().getRegisters();
-    uint32_t instr = ptrace(PTRACE_PEEKTEXT, tracee, regs.pc, 0);
-    printf("[+] (%d) pc: 0x%08lx sp: 0x%08lx instr: 0x%04x\n",
-            tracee, regs.pc, regs.sp, instr);
-}
 
-void printRegsMap(pid_t tracee) {
-    struct user_pt_regs regs = Connector::getInstance().getRegisters();
-
-    printf("----Register Map-------------------------------------------\n");
-    for (int i = 0; i < 10; ++i) {
-        printf("  x%d:   0x%016llx   x%d:  0x%016llx  x%d:  0x%016llx \n",
-            i, regs.regs[i], i+10, regs.regs[i+10], i+20, regs.regs[i+20]);
-    }
-    printf("  x%d:  0x%016llx\n", 30, regs.regs[30]);
-    printf("  pc:   0x%016llx    sp:   0x%016llx pstate:0x%016llx\n",
-            regs.pc, regs.sp, regs.pstate);
-    printf("-----------------------------------------------------------\n");
-}
-
-void mprotMem(pid_t tracee) {
+void mprotMem() {
 
     // get extra mprot args
     auto args = CmdParser::getInstance().getArgs();
@@ -243,7 +230,7 @@ void mprotMem(pid_t tracee) {
     printf("[+] mprot result: 0x%x\n", result);
 }
 
-void issueCommand(pid_t tracee , CMD_TYPE command)
+void issueCommand(CMD_TYPE command)
 {
     switch (command)
     {
@@ -253,23 +240,23 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
         wait_status = Connector::getInstance().doSingleStep();
         break;
     case CMD_TYPE::CONTIN:
-        Continue(tracee); break;
+        Continue(); break;
     case CMD_TYPE::SHOW_REGS:
-        printRegsMap(tracee); break;
+        printRegsMap(); break;
     case CMD_TYPE::MEM_MPROTECT:
-        mprotMem(tracee); break;
+        mprotMem(); break;
     case CMD_TYPE::MEM_MMAP:
         Connector::getInstance().allocateMemoryInChild();
         break;
     case CMD_TYPE::SYSCALL_CONTIN:
-        syscallContinue(tracee); break;
+        syscallContinue(); break;
     case CMD_TYPE::SET_BREAKPOINT:
-        setBreakPoint(tracee); break;
+        setBreakPoint(); break;
     case CMD_TYPE::READ_MEMORY:
-        readTraceeMemory(tracee); break;
+        readTraceeMemory(); break;
     case CMD_TYPE::STRACE_MODE:
         strace_mode = true;
-        syscallContinue(tracee); break;
+        syscallContinue(); break;
     default:
         // should never happen
         printf("Not implemented command!");
@@ -280,43 +267,32 @@ void issueCommand(pid_t tracee , CMD_TYPE command)
 
 int main(int argc, char** argv) {
 
-    if (argc == 1) {
-        printf("Usage: ./debugger -p <pid>|<binary path>\n");
+    auto& cmdparser = CmdParser::getInstance();
+    if (!cmdparser.startUpArgs(argc, argv)) {
         return -1;
-    }
-
-    bool MODE_ATTACH = false;
-    uint64_t tracee = 0;
-    std::string param = argv[1];
-    if (param == "-p") {
-        tracee = stringToU64(argv[2]);
-        printf("Attaching to PID: %lu\n", tracee);
-        MODE_ATTACH = true;
-    }
-    else {
-        std::cout << "[*] Executable path: " << param << std::endl;
     }
 
     if (!plugin_helper.checkForPlugins()) {
-        printf("Invalid Plugins detected! stop a64dbg\n");
+        printf("[Error] Invalid Plugins detected!\n");
         return -1;
     }
+
+    bool MODE_ATTACH = cmdparser.attach_mode;
+    tracee = cmdparser.target_pid;
 
     if (!MODE_ATTACH) {
         tracee = fork();
         if (tracee == 0) {
-            execute_debugee(tracee, param, argv);
-            printf("Child is supposed to never return!!!");
+            execute_debugee(tracee, cmdparser.binary_name, argv);
+            printf("[ERROR] Child is supposed to never return!");
             return 0;
         }
     }
 
-    // init singletons
+    // init connector, executes ptrace commands
     auto& connector = Connector::getInstance();
     connector.init(tracee);
-    auto& cmdparser = CmdParser::getInstance();
 
-    // attaching to target process, NOT implemented
     if (MODE_ATTACH) {
         if (!connector.attach()) {
             printf("[!] Could not attach to: %lu!\n", tracee);
@@ -326,11 +302,17 @@ int main(int argc, char** argv) {
 
     // when not attaching the new process is calling traceme
     printf("[*] Debugger Started, tracee pid: %lu\n", tracee);
-    wait(&wait_status);
+    waitpid(tracee, &wait_status, 0);
+
+    // TODO: add follow fork
+    uint32_t popts = /*PTRACE_O_TRACESYSGOOD*/
+         PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK; // | PTRACE_O_TRACEVFORK | PTRACE_O_TRACEFORK;
+    int res = ptrace(PTRACE_SETOPTIONS, tracee, 0, (unsigned long)popts);
+    printf("set ptrace options: %d\n", res);
 
     // allocate a private memory region inside the tracee for page based
     // breakpoints
-    connector.allocateMemoryInChild();
+    //connector.allocateMemoryInChild();
 
     CMD_TYPE command = CMD_TYPE::NONE;
 
@@ -341,10 +323,10 @@ int main(int argc, char** argv) {
             command != CMD_TYPE::READ_MEMORY &&
             command != CMD_TYPE::MEM_MPROTECT)
         {
-            printCmdHeader(tracee);
+            printCmdHeader();
         }
         command = cmdparser.getCmd();
-        issueCommand(tracee, command);
+        issueCommand(command);
     }
 
     printf("Tracee done\n");
