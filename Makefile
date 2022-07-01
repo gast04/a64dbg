@@ -1,8 +1,10 @@
+NDK_DIR = pathToNdk
+
 .build_aarch64:
-	cmake . -DCMAKE_TOOLCHAIN_FILE=/home/knistelberger/Android/Ndk/android-ndk-r21d/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -B build
+	cmake . -DCMAKE_TOOLCHAIN_FILE=$(NDK_DIR)/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -B build
 	cmake --build build
 
-	$(PWD)/../../Android/Ndk/android-ndk-r21d/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-strip build/a64dbg
+	$(NDK_DIR)/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-strip build/a64dbg
 
 .build_x64:
 	# not supported
