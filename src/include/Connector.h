@@ -9,8 +9,13 @@ private:
     pid_t tracee;
     uint64_t private_memory;
 
+    enum class HwFeature { Watchpoint, Breakpoint };
+    bool hw_bp_supported;
+    bool hw_watch_supported;
+
     Connector(){}
     ~Connector(){}
+    bool checkHwFeature(HwFeature feature);
 
 public:
     static Connector& getInstance() {
@@ -21,6 +26,9 @@ public:
     void init(pid_t tracee_pid);
     void setTracee(pid_t tracee_pid);
     bool attach();
+    bool checkHwBpSupport();
+    bool checkHwWatchSupport();
+
     struct user_pt_regs getRegisters();
     void setRegisters(struct user_pt_regs regs);
     size_t readMemory(void* addr, uint8_t* buffer, size_t size);

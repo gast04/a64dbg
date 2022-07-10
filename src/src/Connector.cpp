@@ -22,6 +22,60 @@ bool Connector::attach() {
     return true;
 }
 
+bool Connector::checkHwFeature(HwFeature feature) {
+    // Source from:
+    // https://cs.android.com/android/platform/superproject/+/master:bionic/tests/sys_ptrace_test.cpp;bpv=0;bpt=1
+    /*
+        enum class HwFeature { Watchpoint, Breakpoint };
+        static void check_hw_feature_supported(pid_t child, HwFeature feature)
+    */
+    struct user_hwdebug_state dreg_state;
+    iovec iov;
+    iov.iov_base = &dreg_state;
+    iov.iov_len = sizeof(dreg_state);
+
+    long result = ptrace(PTRACE_GETREGSET, tracee,
+        feature == HwFeature::Watchpoint ? NT_ARM_HW_WATCH : NT_ARM_HW_BREAK,
+        &iov);
+
+    if (result == -1) {
+        if (feature == HwFeature::Watchpoint) {
+            printf("[!] Error Watch-Hardware support missing\n");
+        }
+        else {
+            printf("[!] Error Bp-Hardware support missing\n");
+        }
+        return false;
+    } else if ((dreg_state.dbg_info & 0xff) == 0) {
+        if (feature == HwFeature::Watchpoint) {
+            printf("Kernel reports zero hardware watchpoints\n");
+        }
+        else {
+            printf("Kernel reports zero hardware breakpoints\n");
+        }
+        return false;
+    }
+
+    if (feature == HwFeature::Watchpoint) {
+        printf("[*] Watch-Hardware supported!\n");
+    }
+    else {
+        printf("[*] Bp-Hardware supported!\n");
+    }
+
+    return true;
+}
+
+bool Connector::checkHwBpSupport() {
+    hw_bp_supported = checkHwFeature(HwFeature::Breakpoint);
+    return hw_bp_supported;
+}
+
+bool Connector::checkHwWatchSupport() {
+    hw_watch_supported = checkHwFeature(HwFeature::Watchpoint);
+    return hw_watch_supported;
+}
+
 struct user_pt_regs Connector::getRegisters() {
     struct user_pt_regs regs;
     struct iovec io;

@@ -287,7 +287,7 @@ int main(int argc, char** argv) {
         tracee = fork();
         if (tracee == 0) {
             execute_debugee(tracee, cmdparser.binary_name, argv);
-            printf("[ERROR] Child is supposed to never return!");
+            printf("[ERROR] Child is supposed to never return!\n");
             return 0;
         }
     }
@@ -318,6 +318,10 @@ int main(int argc, char** argv) {
     // allocate a private memory region inside the tracee for page based
     // breakpoints
     //connector.allocateMemoryInChild();
+
+    // check hardware support
+    connector.checkHwBpSupport();
+    connector.checkHwWatchSupport();
 
     CMD_TYPE command = CMD_TYPE::NONE;
 
