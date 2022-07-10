@@ -23,6 +23,8 @@ CMD_TYPE CmdParser::getCmd() {
 
     CMD_TYPE cmd = CMD_TYPE::NONE;
 
+    // TODO: this needs a rework, do something more generic where only one
+    // place exists for adding new arguments, like a map or idk
     while (cmd == CMD_TYPE::NONE) {
         printf("a64> ");
         std::string cmd_str;
@@ -47,7 +49,6 @@ CMD_TYPE CmdParser::getCmd() {
         else if (cmd_str.empty() && last_command != CMD_TYPE::NONE) {
             cmd = last_command;
         }
-
         else if (cmd_str.substr(0, 5) == "break" ||
                  cmd_str.substr(0, 2) == "bp" ||
                  cmd_str[0] == 'b')
@@ -56,6 +57,15 @@ CMD_TYPE CmdParser::getCmd() {
 
             if (parseArgs(cmd_str)) {
                 cmd = CMD_TYPE::SET_BREAKPOINT;
+            }
+        }
+        else if (cmd_str.substr(0, 6) == "hbreak" ||
+                 cmd_str.substr(0, 3) == "hbp")
+        {
+            // expected cmd: "hbreak <addr>"
+
+            if (parseArgs(cmd_str)) {
+                cmd = CMD_TYPE::SET_HW_BREAKPOINT;
             }
         }
         else if (cmd_str.substr(0, 5) == "readm" ||

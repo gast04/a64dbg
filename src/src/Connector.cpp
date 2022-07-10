@@ -55,12 +55,16 @@ bool Connector::checkHwFeature(HwFeature feature) {
         }
         return false;
     }
+    printf("[DEBUG] dbg_info: %d\n", dreg_state.dbg_info);
+    printf("[DEBUG] pad:      %d\n", dreg_state.pad);
 
     if (feature == HwFeature::Watchpoint) {
-        printf("[*] Watch-Hardware supported!\n");
+        printf("[*] %d Hardware-Watches supported!\n", dreg_state.dbg_info & 0xff);
+        hw_watches = dreg_state.dbg_info & 0xff;
     }
     else {
-        printf("[*] Bp-Hardware supported!\n");
+        printf("[*] %d Hardware-Breakpoints supported!\n", dreg_state.dbg_info & 0xff);
+        hw_breakpoints = dreg_state.dbg_info & 0xff;
     }
 
     return true;
@@ -215,4 +219,70 @@ uint64_t Connector::mprotectMemory(uint64_t mem_addr, uint64_t mem_size,
     // restore registers
     setRegisters(regs_save);
     return res;
+}
+
+bool Connector::setHwBreakpoint(uint64_t addr, uint64_t bp_num) {
+    if (bp_num >= hw_bp_supported) {
+        printf("[!] Hardware Breakpoint register number too high!\n");
+        return false;
+    }
+
+    addr &= ~3;
+    const unsigned byte_mask = 0xf;
+    const unsigned enable = 1;
+    const unsigned control = byte_mask << 7 | enable;
+
+    // read all registers and then overwrite the given one
+    struct user_hwdebug_state dreg_state = getHwBreakpoints();
+    dreg_state.dbg_regs[bp_num].addr = reinterpret_cast<uintptr_t>(addr);
+    dreg_state.dbg_regs[bp_num].ctrl = control;
+
+    iovec iov;
+    iov.iov_base = &dreg_state;
+    iov.iov_len  = offsetof(user_hwdebug_state, dbg_regs);
+
+    size_t reg_size = sizeof(dreg_state.dbg_regs[0]);
+    iov.iov_len += reg_size + reg_size*bp_num;
+
+    if (ptrace(PTRACE_SETREGSET, tracee, NT_ARM_HW_BREAK, &iov) < 0) {
+        printf("[!] Could not set Hardware Breakpoint!\n");
+        return false;
+    }
+    return true;
+}
+
+void Connector::clearHwBreakpoint(int idx) {
+    if (idx >= hw_bp_supported) {
+        printf("[!] Hardware Breakpoint register number too high!\n");
+        return false;
+    }
+
+    struct user_hwdebug_state dreg_state;
+    memset(&dreg_state, 0, sizeof(dreg_state));
+
+    iovec iov;
+    iov.iov_base = &dreg_state;
+    iov.iov_len  = offsetof(user_hwdebug_state, dbg_regs);
+
+    size_t reg_size = sizeof(dreg_state.dbg_regs[0]);
+    iov.iov_len += reg_size + reg_size*idx;
+
+    if (ptrace(PTRACE_SETREGSET, tracee, NT_ARM_HW_BREAK, &iov) < 0) {
+        printf("[!] Could not delete Hardware Breakpoint (%d)!\n", idx);
+    }
+}
+
+struct user_hwdebug_state Connector::getHwBreakpoints() {
+    struct user_hwdebug_state dreg_state;
+    iovec iov;
+    iov.iov_base = &dreg_state;
+    iov.iov_len = sizeof(dreg_state);
+
+    long result = ptrace(PTRACE_GETREGSET, tracee, NT_ARM_HW_BREAK, &iov);
+    if (result == -1) {
+        printf("[!] Error reading Hardware Breakpoints\n");
+        return dreg_state;
+    }
+
+    return dreg_state;
 }

@@ -53,6 +53,22 @@ void setBreakPoint()
     , data) );
 }
 
+void setHwBreakPoint()
+{
+    auto args = CmdParser::getInstance().getArgs();
+    if (args.size() != 2) {
+        printf("[!] Invalid amount of arguments for setting hardware breakpoint!\n");
+        return;
+    }
+    uint64_t bp_addr = stringToU64(args[0]);
+    uint64_t bp_num  = stringToU64(args[1]);
+
+    // TODO: Verify for valid address range
+    if (Connector::getInstance().setHwBreakpoint(bp_addr, bp_num)) {
+        printf("[+] Set Hardware Breakpoint 0x%lx\n", bp_addr);
+    }
+}
+
 void readTraceeMemory() {
     auto args = CmdParser::getInstance().getArgs();
     if (args.size() != 2) {
@@ -104,6 +120,7 @@ void Continue()
 
     waitpid(tracee, &wait_status, 0);
     if (WIFSTOPPED(wait_status)) {
+        printf("[+] PTRACE_CONT stop signal: %d\n", WSTOPSIG(wait_status));
         if( (WSTOPSIG(wait_status)) == 5 )
         {
             struct user_pt_regs regs = Connector::getInstance().getRegisters();
@@ -118,7 +135,18 @@ void Continue()
                 ptrace(PTRACE_POKETEXT, tracee, (void*)iter->first, (void*)iter->second);
             }
             else {
-                printf("Breakpoint not found in list... hein??\n");
+                printf("Checking for hardware breakpoint...\n");
+
+                struct user_hwdebug_state hregs =
+                    Connector::getInstance().getHwBreakpoints();
+
+                for (int i = 0; i < Connector::getInstance().getHwBpCount(); ++i) {
+                    if (regs.pc == hregs.dbg_regs[i].addr) {
+                        // clear HW breakpoint
+                        printf("[*] clear hardware breakpoint at pos: %d\n", i);
+                        Connector::getInstance().clearHwBreakpoint(i);
+                    }
+                }
             }
         }
         else {
@@ -255,6 +283,8 @@ void issueCommand(CMD_TYPE command)
         syscallContinue(); break;
     case CMD_TYPE::SET_BREAKPOINT:
         setBreakPoint(); break;
+    case CMD_TYPE::SET_HW_BREAKPOINT:
+        setHwBreakPoint(); break;
     case CMD_TYPE::READ_MEMORY:
         readTraceeMemory(); break;
     case CMD_TYPE::STRACE_MODE:
@@ -329,6 +359,7 @@ int main(int argc, char** argv) {
     while(WIFSTOPPED(wait_status)) {
         if (command != CMD_TYPE::SHOW_REGS &&
             command != CMD_TYPE::SET_BREAKPOINT &&
+            command != CMD_TYPE::SET_HW_BREAKPOINT &&
             command != CMD_TYPE::READ_MEMORY &&
             command != CMD_TYPE::MEM_MPROTECT)
         {

@@ -86,7 +86,9 @@ void printCmdHeader() {
 }
 
 void printRegsMap() {
-    struct user_pt_regs regs = Connector::getInstance().getRegisters();
+
+    auto& con = Connector::getInstance();
+    struct user_pt_regs regs = con.getRegisters();
 
     printf("----Register Map-------------------------------------------\n");
     for (int i = 0; i < 10; ++i) {
@@ -94,7 +96,16 @@ void printRegsMap() {
             i, regs.regs[i], i+10, regs.regs[i+10], i+20, regs.regs[i+20]);
     }
     printf("  x%d:  0x%016llx\n", 30, regs.regs[30]);
-    printf("  pc:   0x%016llx    sp:   0x%016llx pstate:0x%016llx\n",
+    printf("  pc:   0x%016llx    sp:  0x%016llx pstate:0x%016llx\n",
             regs.pc, regs.sp, regs.pstate);
-    printf("-----------------------------------------------------------\n");
+
+    if (con.hasHwBpSupport()) {
+    printf("----Hardware Registers-------------------------------------\n");
+    struct user_hwdebug_state hregs = con.getHwBreakpoints();
+    printf("  Dbg: ");
+    for(int i = 0; i < con.getHwBpCount(); ++i) {
+        printf("%d: 0x%llx  ", i, hregs.dbg_regs[i].addr);
+    }
+    printf("\n");
+    }
 }

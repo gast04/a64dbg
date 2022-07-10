@@ -11,7 +11,9 @@ private:
 
     enum class HwFeature { Watchpoint, Breakpoint };
     bool hw_bp_supported;
+    int hw_breakpoints;
     bool hw_watch_supported;
+    int hw_watches;
 
     Connector(){}
     ~Connector(){}
@@ -40,4 +42,12 @@ public:
     int doSingleStep();
     uint64_t allocateMemoryInChild();
     uint64_t mprotectMemory(uint64_t mem_addr, uint64_t mem_size, uint64_t mem_prot);
+
+    bool hasHwBpSupport() { return hw_bp_supported; }
+    bool hasHwWatchSupport() { return hw_watch_supported; }
+    int getHwBpCount() { return hw_breakpoints; }
+    int getHwWatchCount() { return hw_watches; }
+    bool setHwBreakpoint(uint64_t addr, uint64_t bp_num);
+    void clearHwBreakpoint(int idx);
+    struct user_hwdebug_state getHwBreakpoints();
 };
