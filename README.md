@@ -21,3 +21,19 @@ a64> readm 0x555555c4f0 25
 000000555555c52c: f9000be8 f9000fe1 97fffe90 f90003e0 f90007e1
 000000555555c540: f94007e1 f94003e0 f94013fe 9100c3ff d65f03c0
 ```
+
+## Supported commands
+```
+n | next                        next instruction
+c | cont                        continue
+r | regs                        print register map
+strace                          syscall tracing
+s | syscall                     run until next syscall
+q | quit | exit                 quit a64dbg
+b | bp | break <addr>           set software breakpoint
+hpb | hbreak <addr> <reg_num>   set hardware breakpoint (if supported)
+rm | readm <addr> <size>        read <size> amount of bytes from <adrr>
+
+mmap        mmap rwx page in tracee, (used for page access control)
+mprot       control tracee memory protection
+```
