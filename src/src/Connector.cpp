@@ -222,7 +222,7 @@ uint64_t Connector::mprotectMemory(uint64_t mem_addr, uint64_t mem_size,
 }
 
 bool Connector::setHwBreakpoint(uint64_t addr, uint64_t bp_num) {
-    if (bp_num >= hw_bp_supported) {
+    if (bp_num >= hw_breakpoints) {
         printf("[!] Hardware Breakpoint register number too high!\n");
         return false;
     }
@@ -252,7 +252,7 @@ bool Connector::setHwBreakpoint(uint64_t addr, uint64_t bp_num) {
 }
 
 void Connector::clearHwBreakpoint(int idx) {
-    if (idx >= hw_bp_supported) {
+    if (idx >= hw_breakpoints) {
         printf("[!] Hardware Breakpoint register number too high!\n");
         return;
     }

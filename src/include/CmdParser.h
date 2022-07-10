@@ -6,6 +6,7 @@
 enum CMD_TYPE {
     NONE,
     EXIT,
+    HELP,
     NEXT,
     CONTIN,
     SHOW_REGS,
@@ -42,4 +43,5 @@ public:
 
     CMD_TYPE getCmd();
     std::vector<std::string> getArgs() { return cmd_args; }
+    void printHelpMessage();
 };

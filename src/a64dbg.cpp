@@ -290,6 +290,8 @@ void issueCommand(CMD_TYPE command)
     case CMD_TYPE::STRACE_MODE:
         strace_mode = true;
         syscallContinue(); break;
+    case CMD_TYPE::HELP:
+        CmdParser::getInstance().printHelpMessage(); break;
     default:
         // should never happen
         printf("Not implemented command!");

@@ -1,4 +1,6 @@
 #include <iostream>
+#include <vector>
+#include <unordered_map>
 
 #include "CmdParser.h"
 
@@ -19,98 +21,133 @@ bool CmdParser::parseArgs(std::string cmd_str) {
     return true;
 }
 
+
+typedef struct cmd_struct {
+    std::vector<std::string> cmd;
+    CMD_TYPE type;
+    int args_num;
+    std::string info_msg;
+} CMD_STRUCT;
+
+
+std::unordered_map<std::string, cmd_struct> commands = {
+    {"exit", {
+        {"q", "quit", "exit"},
+        CMD_TYPE::EXIT,
+        0,
+        "end debugging session"
+    }},
+    {"help", {
+        {"?", "help"},
+        CMD_TYPE::HELP,
+        0,
+        "print help information"
+    }},
+    {"next", {
+        {"n", "next"},
+        CMD_TYPE::NEXT,
+        0,
+        "single step instruction"
+    }},
+    {"continue", {
+        {"c", "cont", "continue"},
+        CMD_TYPE::CONTIN,
+        0,
+        "single step instruction"
+    }},
+    {"breakpoint", {
+        {"bp", "breakpoint"},
+        CMD_TYPE::SET_BREAKPOINT,
+        1,
+        "set software breakpoint, bp <addr>"
+    }},
+    {"hw_breakpoint", {
+        {"hbp", "hbreakpoint"},
+        CMD_TYPE::SET_HW_BREAKPOINT,
+        2,
+        "set hardware breakpoint, hbp <addr> <reg_num>"
+    }},
+    {"read_memory", {
+        {"rm", "readm"},
+        CMD_TYPE::READ_MEMORY,
+        2,
+        "read tracee memory, readm <addr> <size>"
+    }},
+    {"read_registers", {
+        {"re", "regs"},
+        CMD_TYPE::SHOW_REGS,
+        0,
+        "show registers"
+    }},
+    {"mprot", {
+        {"mprot"},
+        CMD_TYPE::MEM_MPROTECT,
+        3,
+        "change tracee memory protection, mprot <addr> <size> <flags>"
+    }},
+    {"mmap", {
+        {"mmap"},
+        CMD_TYPE::MEM_MMAP,
+        3,
+        "mmap memory in tracee, mmap <addr> <size> <flags>"
+    }},
+};
+
 CMD_TYPE CmdParser::getCmd() {
 
-    CMD_TYPE cmd = CMD_TYPE::NONE;
-
-    // TODO: this needs a rework, do something more generic where only one
-    // place exists for adding new arguments, like a map or idk
-    while (cmd == CMD_TYPE::NONE) {
+    while (true) {
         printf("a64> ");
         std::string cmd_str;
         std::getline(std::cin, cmd_str);
 
-        // verify and validate command
-        if (cmd_str == "next" || cmd_str == "n") {
-            cmd = CMD_TYPE::NEXT;
+        if (cmd_str.empty() && last_command != CMD_TYPE::NONE) {
+            return last_command;
         }
-        else if (cmd_str == "cont" || cmd_str == "c") {
-            cmd = CMD_TYPE::CONTIN;
-        }
-        else if (cmd_str == "strace") {
-            cmd = CMD_TYPE::STRACE_MODE;
-        }
-        else if (cmd_str == "syscall" || cmd_str == "s") {
-            cmd = CMD_TYPE::SYSCALL_CONTIN;
-        }
-        else if (cmd_str == "exit" || cmd_str == "quit" || cmd_str == "q") {
-            cmd = CMD_TYPE::EXIT;
-        }
-        else if (cmd_str.empty() && last_command != CMD_TYPE::NONE) {
-            cmd = last_command;
-        }
-        else if (cmd_str.substr(0, 5) == "break" ||
-                 cmd_str.substr(0, 2) == "bp" ||
-                 cmd_str[0] == 'b')
-        {
-            // expected cmd: "break <addr>"
 
-            if (parseArgs(cmd_str)) {
-                cmd = CMD_TYPE::SET_BREAKPOINT;
+        // parse command
+        for (auto& c : commands) {
+            CMD_STRUCT& cs = commands[c.first];
+
+            bool has_match = false;
+            for (auto& sc : cs.cmd) {
+                has_match |= cmd_str.substr(0, sc.size()) == sc;
+            }
+
+            if (!has_match)
+                continue;
+
+            if (cs.args_num != 0) {
+                if (parseArgs(cmd_str)) {
+                    last_command = cs.type;
+                    return cs.type;
+                }
+            }
+            else {
+                last_command = cs.type;
+                return cs.type;
             }
         }
-        else if (cmd_str.substr(0, 6) == "hbreak" ||
-                 cmd_str.substr(0, 3) == "hbp")
-        {
-            // expected cmd: "hbreak <addr>"
 
-            if (parseArgs(cmd_str)) {
-                cmd = CMD_TYPE::SET_HW_BREAKPOINT;
-            }
-        }
-        else if (cmd_str.substr(0, 5) == "readm" ||
-                 cmd_str.substr(0, 2) == "rm")
-        {
-            // expected cmd: "readm <addr> <size>"
-
-            if (parseArgs(cmd_str)) {
-                cmd = CMD_TYPE::READ_MEMORY;
-            }
-        }
-        // careful by only checking for 'r'
-        else if (cmd_str == "regs" || cmd_str == "r") {
-            cmd = CMD_TYPE::SHOW_REGS;
-        }
-        else if (cmd_str.substr(0, 5) == "mprot") {
-            // verify and parse argumets of mprotect
-            // expected cmd: "mprot <addr> <size> <flags>"
-            //  flags: combination of rwx
-
-            if (parseArgs(cmd_str)) {
-                cmd = CMD_TYPE::MEM_MPROTECT;
-            }
-            // else -> error during argument parsing
-        }
-        else if (cmd_str.substr(0, 4) == "mmap") {
-            // verify and parse argumets of mprotect
-            // expected cmd: "mmap <addr> <size> <flags>"
-            //  flags: combination of rwx
-
-            cmd = CMD_TYPE::MEM_MMAP;
-            /*if (parseArgs(cmd_str)) {
-                cmd = CMD_TYPE::MEM_MPROTECT;
-            }*/
-            // else -> error during argument parsing
-        }
-        else {
-            printf("[!] Unknown command: '%s'\n", cmd_str.c_str());
-        }
+        printf("[!] Unknown command: '%s'\n", cmd_str.c_str());
     }
 
-    // TODO: think about a way on parsing commands with arguments?
+    // never reaches this point
+    return CMD_TYPE::NONE;
+}
 
-    last_command = cmd;
-    return cmd;
+void CmdParser::printHelpMessage() {
+
+    printf("available commands:\n\n");
+    for (auto& c : commands) {
+        CMD_STRUCT& cs = commands[c.first];
+
+        printf("  ");
+        for(auto& cs : cs.cmd)
+            printf("%s ", cs.c_str());
+        printf("(%d)\n", cs.args_num);
+        printf("      %s\n", cs.info_msg.c_str());
+    }
+    printf("\n");
 }
 
 bool CmdParser::startUpArgs(int argc, char** argv) {
