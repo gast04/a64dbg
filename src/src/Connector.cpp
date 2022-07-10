@@ -254,7 +254,7 @@ bool Connector::setHwBreakpoint(uint64_t addr, uint64_t bp_num) {
 void Connector::clearHwBreakpoint(int idx) {
     if (idx >= hw_bp_supported) {
         printf("[!] Hardware Breakpoint register number too high!\n");
-        return false;
+        return;
     }
 
     struct user_hwdebug_state dreg_state;
